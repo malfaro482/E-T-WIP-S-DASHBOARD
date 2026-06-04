@@ -143,7 +143,6 @@ tr:hover td{background:rgba(99,102,241,.05)}
 <div class="nav-tab active" onclick="switchPage('projects')">Projects</div>
 <div class="nav-tab" onclick="switchPage('overview')">Overview</div>
 <div class="nav-tab" onclick="switchPage('budget')">Budget vs Actual</div>
-<div class="nav-tab" onclick="switchPage('trackers')">Trackers</div>
 </div>
 
 <div class="page active" id="page-projects">
@@ -174,17 +173,11 @@ tr:hover td{background:rgba(99,102,241,.05)}
 <div class="chr"><div class="chc full"><h3>Top 10 Projects by Contract Value</h3><canvas id="c-t10"></canvas></div></div>
 </div>
 
-<div class="page" id="page-trackers">
-<div class="tsel" id="tsel"></div>
-<div class="kr" id="kpi-trk"></div>
-<div class="chr"><div class="chc full"><h3>Progress by Tracker Area</h3><canvas id="c-trk"></canvas></div></div>
-<div class="tc"><h3>Tasks</h3><div style="overflow-x:auto"><table id="ttable"></table></div></div>
-</div>
 </div>
 
 <script>
 // === FILE ACCESS ===
-let fileHandle=null,P=[],TK=[],aL=new Set(['MO','NE','TX','AZ','CO']),aT='ALL',cP='projects',CI={},sC=null,sA=true;
+let fileHandle=null,P=[],aL=new Set(['MO','NE','TX','AZ','CO']),cP='projects',CI={},sC=null,sA=true;
 const LC={MO:'#E8542E',NE:'#2E86E8',TX:'#E8A02E',AZ:'#2EE87A',CO:'#9B2EE8'};
 
 function openDB(){return new Promise((res,rej)=>{const r=indexedDB.open('ETDash',1);r.onupgradeneeded=()=>r.result.createObjectStore('f');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
@@ -246,7 +239,7 @@ window.addEventListener('load',async()=>{
 
 // === PROCESS WORKBOOK ===
 function proc(wb,lastMod){
-try{P=[];TK=[];
+try{P=[];
 ['MO','NE','TX','AZ','CO'].forEach(function(locName){
 if(!wb.Sheets[locName])return;
 var d=XLSX.utils.sheet_to_json(wb.Sheets[locName],{header:1,defval:null});
@@ -264,6 +257,7 @@ var hdr=d[hdrIdx];
 for(var c=0;c<hdr.length;c++){
   var h=hdr[c];if(!h)continue;h=String(h).toUpperCase().trim();
   if(h.indexOf('OPEN PROJECT')>=0&&ci.name==null)ci.name=c;
+  else if(h.indexOf('PROJECT FULL NAME')>=0&&ci.fullName==null)ci.fullName=c;
   else if(h==='ESTIMATE'&&ci.est==null)ci.est=c;
   else if(h==='CHANGE ORDER'&&ci.co==null)ci.co=c;
   else if(h==='PO#'&&ci.po==null)ci.po=c;
@@ -294,7 +288,7 @@ console.log(locName+' columns detected:', JSON.stringify(ci), 'header at row ind
 for(var i=hdrIdx+1;i<d.length;i++){var r=d[i];if(!r||!r[ci.name])continue;var nm=String(r[ci.name]).trim();if(!nm||nm.toUpperCase()==='TOTAL')continue;
 var v=function(idx){if(idx===undefined)return 0;var x=r[idx];if(x==null||x===''||String(x).startsWith('#'))return 0;var n=Number(x);return isNaN(n)?0:n};
 var s=function(idx){if(idx===undefined)return '';var x=r[idx];return x!=null?String(x).trim():''};
-P.push({location:locName,name:nm,estimate:s(ci.est),changeOrder:s(ci.co),po:s(ci.po),projectType:s(ci.type),
+P.push({location:locName,name:nm,fullName:s(ci.fullName),estimate:s(ci.est),changeOrder:s(ci.co),po:s(ci.po),projectType:s(ci.type),
 finalPrice:v(ci.fp),budgetedHours:v(ci.bh),actualHours:v(ci.ah),
 budgetedLabor:v(ci.blc),actualLabor:v(ci.alc),budgetedMaterial:v(ci.bmc),actualMaterial:v(ci.amc),
 budgetedEquipment:v(ci.bec),actualEquipment:v(ci.aec),budgetedExpense:v(ci.be),actualExpense:v(ci.ae),
@@ -303,32 +297,25 @@ amountBilled:v(ci.billed),leftToBill:v(ci.left),grossProfit:v(ci.gp),grossProfit
 if(P.length===1||(P.length>0&&P[P.length-2].location!==locName))console.log(locName+' first project: name='+nm+', est='+s(ci.est)+', fp='+v(ci.fp))
 }});
 
-['PROJECT TRACKER CHAIN CONTROLS','PROJECT TRACKER FAB','PROJECT TRACKER HARVEST','PROJECT TRACKER IT EQUIPMENT','PROJECT TRACKER PRETREATMENT ','PROJECT TRACKER REFRIGERATION','PROJECT TRACKER SPRAY CHILLERS','PROJECT TRACKER RENDERING'].forEach(sn=>{
-const ws=wb.Sheets[sn]||wb.Sheets[sn.trim()];if(!ws)return;const d=XLSX.utils.sheet_to_json(ws,{header:1,defval:null});const area=sn.replace('PROJECT TRACKER ','').trim();
-for(let i=2;i<d.length;i++){const r=d[i];if(!r||r[1]==null)continue;const it=Number(r[1]);if(isNaN(it))continue;
-TK.push({area:area,item:it,assigned:r[2]?String(r[2]).trim():'Unassigned',description:r[3]?String(r[3]).replace(/\|\|\s*/g,'').trim():'',estimatedHours:Number(r[4])||0,advancePct:Number(r[5])||0,earnedHours:Number(r[6])||0})}});
 
-aL=new Set(['MO','NE','TX','AZ','CO']);aT='ALL';
+aL=new Set(['MO','NE','TX','AZ','CO']);
 document.getElementById('last-loaded').textContent='Loaded: '+new Date().toLocaleString()+' | '+P.length+' projects | File modified: '+(lastMod?new Date(lastMod).toLocaleString():'');
 show('dashboard');renderAll()}catch(e){showErr('Processing error: '+e.message);console.error(e)}}
 
 // === FILTERS & NAV ===
 function gFP(){return P.filter(p=>aL.has(p.location))}
-function gFT(){return aT==='ALL'?TK:TK.filter(t=>t.area===aT)}
 function togLoc(l){if(aL.has(l)){if(aL.size>1)aL.delete(l)}else aL.add(l);renderAll()}
 function setAll(){aL=new Set(['MO','NE','TX','AZ','CO']);renderAll()}
-function setTr(a){aT=a;renderAll()}
-function switchPage(pg){cP=pg;document.querySelectorAll('.nav-tab').forEach((t,i)=>t.classList.toggle('active',['projects','overview','budget','trackers'][i]===pg));document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById('page-'+pg).classList.add('active');closeDet();renderAll()}
+function switchPage(pg){cP=pg;document.querySelectorAll('.nav-tab').forEach((t,i)=>t.classList.toggle('active',['projects','overview','budget'][i]===pg));document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById('page-'+pg).classList.add('active');closeDet();renderAll()}
 
 function fC(v){if(Math.abs(v)>=1e6)return'$'+(v/1e6).toFixed(2)+'M';if(Math.abs(v)>=1e3)return'$'+(v/1e3).toFixed(1)+'K';return'$'+v.toFixed(2)}
 function fF(v){return'$'+v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}
 function fP(v){return(v*100).toFixed(2)+'%'}
 function fH(v){return v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}
 
-function renderAll(){renderFilters();if(cP==='projects')renderProjects();if(cP==='overview')renderOverview();if(cP==='budget')renderBudget();if(cP==='trackers')renderTrackers()}
+function renderAll(){renderFilters();if(cP==='projects')renderProjects();if(cP==='overview')renderOverview();if(cP==='budget')renderBudget()}
 
-function renderFilters(){['projects','overview','budget'].forEach(pg=>{const b=document.getElementById('fb-'+pg);if(!b)return;let h='<span class="fl">Location:</span><button class="fbtn '+(aL.size===5?'active':'')+'" onclick="setAll()">All</button>';['MO','NE','TX','AZ','CO'].forEach(l=>{h+='<button class="fbtn '+(aL.has(l)?'active':'')+'" style="'+(aL.has(l)?'background:'+LC[l]+';border-color:'+LC[l]+';color:#fff':'')+'" onclick="togLoc(\''+l+'\')">'+l+'</button>'});b.innerHTML=h});
-const s=document.getElementById('tsel');if(s){const a=[...new Set(TK.map(t=>t.area))];let h='<button class="fbtn '+(aT==='ALL'?'active':'')+'" onclick="setTr(\'ALL\')">All</button>';a.forEach(x=>h+='<button class="fbtn '+(aT===x?'active':'')+'" onclick="setTr(\''+x+'\')">'+x+'</button>');s.innerHTML=h}}
+function renderFilters(){['projects','overview','budget'].forEach(pg=>{const b=document.getElementById('fb-'+pg);if(!b)return;let h='<span class="fl">Location:</span><button class="fbtn '+(aL.size===5?'active':'')+'" onclick="setAll()">All</button>';['MO','NE','TX','AZ','CO'].forEach(l=>{h+='<button class="fbtn '+(aL.has(l)?'active':'')+'" style="'+(aL.has(l)?'background:'+LC[l]+';border-color:'+LC[l]+';color:#fff':'')+'" onclick="togLoc(\''+l+'\')">'+l+'</button>'});b.innerHTML=h})}
 
 // === PROJECTS ===
 function renderProjects(){
@@ -336,9 +323,9 @@ const q=(document.getElementById('psearch')?.value||'').toLowerCase();let ps=gFP
 if(sC)ps.sort((a,b)=>{let va=a[sC],vb=b[sC];return typeof va==='string'?(sA?va.localeCompare(vb):vb.localeCompare(va)):(sA?va-vb:vb-va)});else ps.sort((a,b)=>b.finalPrice-a.finalPrice);
 const all=gFP(),tCV=all.reduce((s,p)=>s+p.finalPrice,0),tGP=all.reduce((s,p)=>s+p.grossProfit,0),tBi=all.reduce((s,p)=>s+p.amountBilled,0),tCO=all.reduce((s,p)=>s+p.cogs,0);
 document.getElementById('kpi-projects').innerHTML='<div class="kc"><div class="kl">Total Final Price</div><div class="kv">'+fF(tCV)+'</div><div class="ks">'+all.length+' projects</div></div><div class="kc"><div class="kl">Gross Profit</div><div class="kv '+(tGP>=0?'pos':'neg')+'">'+fF(tGP)+'</div><div class="ks">'+fP(tCV>0?tGP/tCV:0)+' margin</div></div><div class="kc"><div class="kl">Total Billed</div><div class="kv">'+fF(tBi)+'</div><div class="ks">'+fP(tCV>0?tBi/tCV:0)+' of value</div></div><div class="kc"><div class="kl">Total Lump Cost of Goods Sold</div><div class="kv">'+fF(tCO)+'</div></div>';
-const cols=[{k:'name',l:'Project',a:''},{k:'location',l:'Loc',a:'tc2'},{k:'estimate',l:'Estimate',a:''},{k:'finalPrice',l:'Final Price',a:'tr'},{k:'actualHours',l:'Act. Hours',a:'tr'},{k:'amountBilled',l:'Billed',a:'tr'},{k:'cogs',l:'Lump Cost of Goods Sold',a:'tr'},{k:'grossProfit',l:'Gross Profit',a:'tr'},{k:'grossProfitPct',l:'GP%',a:'tr'}];
+const cols=[{k:'name',l:'Project',a:''},{k:'fullName',l:'Project Full Name',a:''},{k:'location',l:'Loc',a:'tc2'},{k:'estimate',l:'Estimate',a:''},{k:'finalPrice',l:'Final Price',a:'tr'},{k:'actualHours',l:'Act. Hours',a:'tr'},{k:'amountBilled',l:'Billed',a:'tr'},{k:'cogs',l:'Lump Cost of Goods Sold',a:'tr'},{k:'grossProfit',l:'Gross Profit',a:'tr'},{k:'grossProfitPct',l:'GP%',a:'tr'}];
 let h='<thead><tr>';cols.forEach(c=>{const ar=sC===c.k?(sA?' ▲':' ▼'):'';h+='<th class="'+c.a+'" onclick="doSort(\''+c.k+'\')">'+c.l+ar+'</th>'});h+='<th></th></tr></thead><tbody>';
-ps.forEach(p=>{const gc=p.grossProfit>=0?'pos':'neg';h+='<tr><td style="font-weight:500">'+p.name+'</td><td class="tc2"><span class="lb lb-'+p.location+'">'+p.location+'</span></td><td style="color:var(--dim);font-size:.78rem">'+p.estimate+'</td><td class="tr">'+fF(p.finalPrice)+'</td><td class="tr">'+fH(p.actualHours)+'</td><td class="tr">'+fF(p.amountBilled)+'</td><td class="tr">'+fF(p.cogs)+'</td><td class="tr '+gc+'">'+fF(p.grossProfit)+'</td><td class="tr '+gc+'">'+(p.grossProfitPct*100).toFixed(1)+'%</td><td><button onclick="openDet('+P.indexOf(p)+')" style="padding:4px 10px;font-size:.75rem;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--accent);cursor:pointer;font-weight:500">View</button></td></tr>'});
+ps.forEach(p=>{const gc=p.grossProfit>=0?'pos':'neg';h+='<tr><td style="font-weight:500">'+p.name+'</td><td style="color:var(--dim);font-size:.78rem">'+p.fullName+'</td><td class="tc2"><span class="lb lb-'+p.location+'">'+p.location+'</span></td><td style="color:var(--dim);font-size:.78rem">'+p.estimate+'</td><td class="tr">'+fF(p.finalPrice)+'</td><td class="tr">'+fH(p.actualHours)+'</td><td class="tr">'+fF(p.amountBilled)+'</td><td class="tr">'+fF(p.cogs)+'</td><td class="tr '+gc+'">'+fF(p.grossProfit)+'</td><td class="tr '+gc+'">'+(p.grossProfitPct*100).toFixed(1)+'%</td><td><button onclick="openDet('+P.indexOf(p)+')" style="padding:4px 10px;font-size:.75rem;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--accent);cursor:pointer;font-weight:500">View</button></td></tr>'});
 document.getElementById('ptable').innerHTML=h+'</tbody>'}
 function doSort(c){if(sC===c)sA=!sA;else{sC=c;sA=c==='name'||c==='location'||c==='estimate'}renderProjects()}
 
@@ -369,14 +356,6 @@ mkChart('c-hrs','scatter',{datasets:['MO','NE','TX','AZ','CO'].filter(function(l
 const t10=ps.slice().sort(function(a,b){return b.finalPrice-a.finalPrice}).slice(0,10);
 mkChart('c-t10','bar',{labels:t10.map(function(p){return p.name.length>35?p.name.substring(0,35)+'...':p.name}),datasets:[{label:'Final Price',data:t10.map(function(p){return p.finalPrice}),backgroundColor:t10.map(function(p){return LC[p.location]})}]},{indexAxis:'y',scales:{x:{ticks:{callback:function(v){return fC(v)}}}},plugins:{tooltip:{callbacks:{label:function(ctx){return'Final Price: '+fF(ctx.raw)}}}}})}
 
-// === TRACKERS ===
-function renderTrackers(){const ts=gFT();const tE=ts.reduce((s,t)=>s+t.estimatedHours,0),tR=ts.reduce((s,t)=>s+t.earnedHours,0);
-document.getElementById('kpi-trk').innerHTML='<div class="kc"><div class="kl">Estimated Hours</div><div class="kv">'+fH(tE)+'</div></div><div class="kc"><div class="kl">Earned Hours</div><div class="kv">'+fH(tR)+'</div></div><div class="kc"><div class="kl">Progress</div><div class="kv">'+fP(tE>0?tR/tE:0)+'</div></div><div class="kc"><div class="kl">Tasks</div><div class="kv">'+ts.length+'</div></div>';
-const areas=[...new Set(TK.map(function(t){return t.area}))];
-mkChart('c-trk','bar',{labels:areas,datasets:[{label:'Estimated',data:areas.map(function(a){return TK.filter(function(t){return t.area===a}).reduce(function(s,t){return s+t.estimatedHours},0)}),backgroundColor:'rgba(255,255,255,.12)'},{label:'Earned',data:areas.map(function(a){return TK.filter(function(t){return t.area===a}).reduce(function(s,t){return s+t.earnedHours},0)}),backgroundColor:'#22c55e'}]},{scales:{y:{ticks:{callback:function(v){return fH(v)}}}}});
-var h='<thead><tr><th>Task</th><th>Area</th><th>Assigned</th><th class="tr">Est.</th><th>Progress</th><th class="tr">Earned</th></tr></thead><tbody>';
-ts.forEach(function(t){var pc=t.advancePct;var fc=pc>=.75?'fg':pc>=.4?'fo':'fbl';h+='<tr><td>'+(t.description||'Task #'+t.item)+'</td><td>'+t.area+'</td><td>'+t.assigned+'</td><td class="tr">'+t.estimatedHours.toFixed(1)+'</td><td><div class="pb"><div class="f '+fc+'" style="width:'+Math.min(pc*100,100)+'%"></div></div>'+(pc*100).toFixed(0)+'%</td><td class="tr">'+t.earnedHours.toFixed(1)+'</td></tr>'});
-document.getElementById('ttable').innerHTML=h+'</tbody>'}
 
 // === CHART HELPER ===
 function mkChart(id,type,data,opts){opts=opts||{};if(CI[id])CI[id].destroy();var ctx=document.getElementById(id);if(!ctx)return;
