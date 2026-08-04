@@ -7,7 +7,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
-:root{--bg:#0c0c1d;--card:#141432;--card2:#1a1a40;--border:#2a2a5a;--text:#e0e0f0;--dim:#8888aa;--accent:#6366f1;--green:#22c55e;--red:#ef4444;--orange:#f59e0b;--blue:#3b82f6;--mo:#E8542E;--ne:#2E86E8;--tx:#E8A02E;--az:#2EE87A;--co:#9B2EE8}
+:root{--bg:#0c0c1d;--card:#141432;--card2:#1a1a40;--border:#2a2a5a;--text:#e0e0f0;--dim:#8888aa;--accent:#6366f1;--green:#22c55e;--red:#ef4444;--orange:#f59e0b;--blue:#3b82f6;--mo:#E8542E;--ne:#2E86E8;--tx:#E8A02E;--az:#2EE87A;--co:#9B2EE8;--sd:#2EC8E8}
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
 .screen{display:none;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:40px;text-align:center}
@@ -72,7 +72,7 @@ tr:hover td{background:rgba(99,102,241,.05)}
 .tr{text-align:right}.tc2{text-align:center}
 .pos{color:var(--green)}.neg{color:var(--red)}
 .lb{display:inline-block;padding:2px 8px;border-radius:10px;font-size:.7rem;font-weight:600;color:#fff}
-.lb-MO{background:var(--mo)}.lb-NE{background:var(--ne)}.lb-TX{background:var(--tx)}.lb-AZ{background:var(--az)}.lb-CO{background:var(--co)}
+.lb-MO{background:var(--mo)}.lb-NE{background:var(--ne)}.lb-TX{background:var(--tx)}.lb-AZ{background:var(--az)}.lb-CO{background:var(--co)}.lb-SD{background:var(--sd)}
 .pb{width:100px;height:6px;background:rgba(255,255,255,.08);border-radius:3px;overflow:hidden;display:inline-block;vertical-align:middle;margin-right:6px}
 .pb .f{height:100%;border-radius:3px}
 .fg{background:var(--green)}.fbl{background:var(--blue)}.fo{background:var(--orange)}
@@ -177,8 +177,8 @@ tr:hover td{background:rgba(99,102,241,.05)}
 
 <script>
 // === FILE ACCESS ===
-let fileHandle=null,P=[],aL=new Set(['MO','NE','TX','AZ','CO']),cP='projects',CI={},sC=null,sA=true;
-const LC={MO:'#E8542E',NE:'#2E86E8',TX:'#E8A02E',AZ:'#2EE87A',CO:'#9B2EE8'};
+let fileHandle=null,P=[],aL=new Set(['MO','NE','TX','AZ','CO','SD']),cP='projects',CI={},sC=null,sA=true;
+const LC={MO:'#E8542E',NE:'#2E86E8',TX:'#E8A02E',AZ:'#2EE87A',CO:'#9B2EE8',SD:'#2EC8E8'};
 
 function openDB(){return new Promise((res,rej)=>{const r=indexedDB.open('ETDash',1);r.onupgradeneeded=()=>r.result.createObjectStore('f');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
 async function saveH(h){const db=await openDB();const tx=db.transaction('f','readwrite');tx.objectStore('f').put(h,'wip');return new Promise(r=>{tx.oncomplete=r})}
@@ -240,7 +240,7 @@ window.addEventListener('load',async()=>{
 // === PROCESS WORKBOOK ===
 function proc(wb,lastMod){
 try{P=[];
-['MO','NE','TX','AZ','CO'].forEach(function(locName){
+['MO','NE','TX','AZ','CO','SD'].forEach(function(locName){
 if(!wb.Sheets[locName])return;
 var d=XLSX.utils.sheet_to_json(wb.Sheets[locName],{header:1,defval:null});
 // Dynamically find header row by scanning for "OPEN PROJECTS"
@@ -257,7 +257,7 @@ var hdr=d[hdrIdx];
 for(var c=0;c<hdr.length;c++){
   var h=hdr[c];if(!h)continue;h=String(h).toUpperCase().trim();
   if(h.indexOf('OPEN PROJECT')>=0&&ci.name==null)ci.name=c;
-  else if(h.indexOf('PROJECT FULL NAME')>=0&&ci.fullName==null)ci.fullName=c;
+  else if(h.indexOf('PROJECT FULL')>=0&&ci.fullName==null)ci.fullName=c;
   else if(h==='ESTIMATE'&&ci.est==null)ci.est=c;
   else if(h==='CHANGE ORDER'&&ci.co==null)ci.co=c;
   else if(h==='PO#'&&ci.po==null)ci.po=c;
@@ -298,14 +298,14 @@ if(P.length===1||(P.length>0&&P[P.length-2].location!==locName))console.log(locN
 }});
 
 
-aL=new Set(['MO','NE','TX','AZ','CO']);
+aL=new Set(['MO','NE','TX','AZ','CO','SD']);
 document.getElementById('last-loaded').textContent='Loaded: '+new Date().toLocaleString()+' | '+P.length+' projects | File modified: '+(lastMod?new Date(lastMod).toLocaleString():'');
 show('dashboard');renderAll()}catch(e){showErr('Processing error: '+e.message);console.error(e)}}
 
 // === FILTERS & NAV ===
 function gFP(){return P.filter(p=>aL.has(p.location))}
 function togLoc(l){if(aL.has(l)){if(aL.size>1)aL.delete(l)}else aL.add(l);renderAll()}
-function setAll(){aL=new Set(['MO','NE','TX','AZ','CO']);renderAll()}
+function setAll(){aL=new Set(['MO','NE','TX','AZ','CO','SD']);renderAll()}
 function switchPage(pg){cP=pg;document.querySelectorAll('.nav-tab').forEach((t,i)=>t.classList.toggle('active',['projects','overview','budget'][i]===pg));document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById('page-'+pg).classList.add('active');closeDet();renderAll()}
 
 function fC(v){if(Math.abs(v)>=1e6)return'$'+(v/1e6).toFixed(2)+'M';if(Math.abs(v)>=1e3)return'$'+(v/1e3).toFixed(1)+'K';return'$'+v.toFixed(2)}
@@ -315,7 +315,7 @@ function fH(v){return v.toLocaleString('en-US',{minimumFractionDigits:2,maximumF
 
 function renderAll(){renderFilters();if(cP==='projects')renderProjects();if(cP==='overview')renderOverview();if(cP==='budget')renderBudget()}
 
-function renderFilters(){['projects','overview','budget'].forEach(pg=>{const b=document.getElementById('fb-'+pg);if(!b)return;let h='<span class="fl">Location:</span><button class="fbtn '+(aL.size===5?'active':'')+'" onclick="setAll()">All</button>';['MO','NE','TX','AZ','CO'].forEach(l=>{h+='<button class="fbtn '+(aL.has(l)?'active':'')+'" style="'+(aL.has(l)?'background:'+LC[l]+';border-color:'+LC[l]+';color:#fff':'')+'" onclick="togLoc(\''+l+'\')">'+l+'</button>'});b.innerHTML=h})}
+function renderFilters(){['projects','overview','budget'].forEach(pg=>{const b=document.getElementById('fb-'+pg);if(!b)return;let h='<span class="fl">Location:</span><button class="fbtn '+(aL.size===6?'active':'')+'" onclick="setAll()">All</button>';['MO','NE','TX','AZ','CO','SD'].forEach(l=>{h+='<button class="fbtn '+(aL.has(l)?'active':'')+'" style="'+(aL.has(l)?'background:'+LC[l]+';border-color:'+LC[l]+';color:#fff':'')+'" onclick="togLoc(\''+l+'\')">'+l+'</button>'});b.innerHTML=h})}
 
 // === PROJECTS ===
 function renderProjects(){
@@ -342,7 +342,7 @@ function closeDet(){document.getElementById('projects-list').style.display='bloc
 // === OVERVIEW ===
 function renderOverview(){const ps=gFP();const tCV=ps.reduce((s,p)=>s+p.finalPrice,0),tCO=ps.reduce((s,p)=>s+p.cogs,0),tGP=ps.reduce((s,p)=>s+p.grossProfit,0),tBi=ps.reduce((s,p)=>s+p.amountBilled,0),tBu=ps.reduce((s,p)=>s+p.projectCostBudget,0),tBH=ps.reduce((s,p)=>s+p.budgetedHours,0),tAH=ps.reduce((s,p)=>s+p.actualHours,0);
 document.getElementById('kpi-overview').innerHTML='<div class="kc"><div class="kl">Contract Value</div><div class="kv">'+fC(tCV)+'</div><div class="ks">'+ps.length+' projects</div></div><div class="kc"><div class="kl">Lump Cost of Goods Sold</div><div class="kv">'+fC(tCO)+'</div><div class="ks">'+fP(tBu>0?tCO/tBu:0)+' of budget</div></div><div class="kc"><div class="kl">Gross Profit</div><div class="kv '+(tGP>=0?'pos':'neg')+'">'+fC(tGP)+'</div><div class="ks">'+fP(tCV>0?tGP/tCV:0)+' margin</div></div><div class="kc"><div class="kl">Billed</div><div class="kv">'+fC(tBi)+'</div><div class="ks">'+fP(tCV>0?tBi/tCV:0)+' of value</div></div><div class="kc"><div class="kl">Hours</div><div class="kv">'+fH(tAH)+'</div><div class="ks">'+fH(tBH)+' budgeted</div></div>';
-const locs=['MO','NE','TX','AZ','CO'].filter(l=>aL.has(l));const sm=function(l,f){return ps.filter(function(p){return p.location===l}).reduce(function(s,p){return s+p[f]},0)};
+const locs=['MO','NE','TX','AZ','CO','SD'].filter(l=>aL.has(l));const sm=function(l,f){return ps.filter(function(p){return p.location===l}).reduce(function(s,p){return s+p[f]},0)};
 mkChart('c-lb','bar',{labels:locs,datasets:[{label:'Final Price',data:locs.map(function(l){return sm(l,'finalPrice')}),backgroundColor:locs.map(function(l){return LC[l]})},{label:'Gross Profit',data:locs.map(function(l){return sm(l,'grossProfit')}),backgroundColor:locs.map(function(l){return LC[l]+'66'})}]},{scales:{y:{ticks:{callback:function(v){return fC(v)}}}},plugins:{tooltip:{callbacks:{label:function(ctx){return ctx.dataset.label+': '+fF(ctx.raw)}}}}});
 mkChart('c-ld','doughnut',{labels:locs,datasets:[{data:locs.map(function(l){return sm(l,'finalPrice')}),backgroundColor:locs.map(function(l){return LC[l]}),borderWidth:0}]},{plugins:{legend:{position:'right'}}});
 mkChart('c-cs','bar',{labels:locs,datasets:[{label:'Labor',data:locs.map(function(l){return sm(l,'actualLabor')}),backgroundColor:'#6366f1'},{label:'Material',data:locs.map(function(l){return sm(l,'actualMaterial')}),backgroundColor:'#22c55e'},{label:'Equipment',data:locs.map(function(l){return sm(l,'actualEquipment')}),backgroundColor:'#f59e0b'},{label:'Expense',data:locs.map(function(l){return sm(l,'actualExpense')}),backgroundColor:'#ef4444'}]},{scales:{x:{stacked:true},y:{stacked:true,ticks:{callback:function(v){return fC(v)}}}},plugins:{tooltip:{callbacks:{label:function(ctx){return ctx.dataset.label+': '+fF(ctx.raw)}}}}})}
@@ -352,7 +352,7 @@ function renderBudget(){const ps=gFP();const tBH=ps.reduce((s,p)=>s+p.budgetedHo
 document.getElementById('kpi-hours').innerHTML='<div class="kc"><div class="kl">Budgeted Hours</div><div class="kv">'+fH(tBH)+'</div></div><div class="kc"><div class="kl">Actual Hours</div><div class="kv">'+fH(tAH)+'</div></div><div class="kc"><div class="kl">Utilization</div><div class="kv">'+fP(tBH>0?tAH/tBH:0)+'</div></div><div class="kc"><div class="kl">Remaining</div><div class="kv">'+fH(tBH-tAH)+'</div></div>';
 mkChart('c-bva','bar',{labels:['Labor','Material','Equipment','Expense'],datasets:[{label:'Budget',data:['budgetedLabor','budgetedMaterial','budgetedEquipment','budgetedExpense'].map(function(f){return ps.reduce(function(s,p){return s+p[f]},0)}),backgroundColor:'rgba(255,255,255,.12)'},{label:'Actual',data:['actualLabor','actualMaterial','actualEquipment','actualExpense'].map(function(f){return ps.reduce(function(s,p){return s+p[f]},0)}),backgroundColor:'#6366f1'}]},{scales:{y:{ticks:{callback:function(v){return fC(v)}}}},plugins:{tooltip:{callbacks:{label:function(ctx){return ctx.dataset.label+': '+fF(ctx.raw)}}}}});
 const maxH=Math.max.apply(null,ps.map(function(p){return Math.max(p.budgetedHours,p.actualHours)}));
-mkChart('c-hrs','scatter',{datasets:['MO','NE','TX','AZ','CO'].filter(function(l){return aL.has(l)}).map(function(l){return{label:l,data:ps.filter(function(p){return p.location===l&&p.budgetedHours>0}).map(function(p){return{x:p.budgetedHours,y:p.actualHours,label:p.name}}),backgroundColor:LC[l],pointRadius:6,pointHoverRadius:8}}).concat([{label:'On Budget',type:'line',data:[{x:0,y:0},{x:(maxH||100)*1.1,y:(maxH||100)*1.1}],borderColor:'rgba(255,255,255,.15)',borderDash:[5,5],pointRadius:0,fill:false}])},{scales:{x:{title:{display:true,text:'Budgeted Hours',color:'#8888aa'}},y:{title:{display:true,text:'Actual Hours',color:'#8888aa'}}}});
+mkChart('c-hrs','scatter',{datasets:['MO','NE','TX','AZ','CO','SD'].filter(function(l){return aL.has(l)}).map(function(l){return{label:l,data:ps.filter(function(p){return p.location===l&&p.budgetedHours>0}).map(function(p){return{x:p.budgetedHours,y:p.actualHours,label:p.name}}),backgroundColor:LC[l],pointRadius:6,pointHoverRadius:8}}).concat([{label:'On Budget',type:'line',data:[{x:0,y:0},{x:(maxH||100)*1.1,y:(maxH||100)*1.1}],borderColor:'rgba(255,255,255,.15)',borderDash:[5,5],pointRadius:0,fill:false}])},{scales:{x:{title:{display:true,text:'Budgeted Hours',color:'#8888aa'}},y:{title:{display:true,text:'Actual Hours',color:'#8888aa'}}}});
 const t10=ps.slice().sort(function(a,b){return b.finalPrice-a.finalPrice}).slice(0,10);
 mkChart('c-t10','bar',{labels:t10.map(function(p){return p.name.length>35?p.name.substring(0,35)+'...':p.name}),datasets:[{label:'Final Price',data:t10.map(function(p){return p.finalPrice}),backgroundColor:t10.map(function(p){return LC[p.location]})}]},{indexAxis:'y',scales:{x:{ticks:{callback:function(v){return fC(v)}}}},plugins:{tooltip:{callbacks:{label:function(ctx){return'Final Price: '+fF(ctx.raw)}}}}})}
 
